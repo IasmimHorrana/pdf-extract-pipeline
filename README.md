@@ -49,24 +49,69 @@ projeto-pdf-pipeline/
 └── tests/            # Testes unitários e de integração
 ```
 
+## Infraestrutura (Docker)
+
+O projeto compartilha MinIO e PostgreSQL do projeto weather, evitando duplicação de serviços.
+
+### Serviços
+
+| Serviço | Porta | Descrição |
+|---------|-------|-----------|
+| Airflow Webserver | 8081 | Dashboard do pipeline |
+| pgAdmin | 5051 | Visualizar banco pdf_db |
+
+### Arquivos
+
+```
+config/
+├── .env.example           # Template de variáveis
+└── docker-compose.yaml    # Compose (usa rede do weather)
+postgres/
+└── init_pdf.sh           # Script criação banco pdf_db
+sql/
+└── init.sql              # Tabelas do projeto
+```
+
+### Bancos criados
+
+| Banco | Usuário | Descrição |
+|-------|---------|-----------|
+| pdf_db | pdf_user | Dados extraídos dos PDFs |
+| pdf_airflow_db | (mesmo do weather) | Metadata do Airflow |
+
+### Comandos
+
+```bash
+# 1. Criar banco no Postgres existente
+docker exec -i weather_postgres < postgres/init_pdf.sh
+
+# 2. Subir serviços
+cd config && docker-compose up -d
+
+# 3. Acessos
+# Airflow: http://localhost:8081 (admin/admin)
+# pgAdmin: http://localhost:5051 (pdf_admin@pdf.local/pdf_admin)
+```
+
 ## Funcionalidades Implementadas
 
 ### Feito (v0.1)
 - [x] Estrutura de pastas criada
-- [x] logging estruturado (prioritário)
-- [x] metadados do arquivo (nome, tamanho, data upload)
+- [x] pyproject.toml configurado (ruff, pytest, pydantic, loguru)
+- [x] .gitignore criado
+- [x] docker-compose.yaml com Airflow e pgAdmin
+- [x] Script de criação do banco pdf_db
+- [x] Schema SQL com 3 tabelas
 
 ### Pendente
 
 #### Primeira Rodada - Fluxo Feliz
-- [ ] docker-compose.yaml com Airflow, MinIO, PostgreSQL
 - [ ] Sensor MinIO no Airflow (a cada 2 min)
 - [ ] Extrator de tabelas (camelot-py)
 - [ ] Extrator de texto (pypdf2)
 - [ ] Loader PostgreSQL (psycopg2)
 - [ ] Logging estruturado (loguru)
 - [ ] Validação de schemas (pydantic)
-- [ ] Captura de metadados
 - [ ] Tests (pytest + pytest-cov)
 - [ ] Linting/format (ruff)
 
@@ -104,17 +149,3 @@ projeto-pdf-pipeline/
 | file_id | INT | FK processed_files |
 | page_number | INT | Página origem |
 | text_content | TEXT | Texto extraído |
-
----
-
-## Sessões
-
-### Sessão 1 (10/05/2026)
-- Definida arquitetura geral do projeto
-- Escolhida stack tecnológica
-- Criada estrutura de pastas
-- Definidas prioridades: logging estruturado, metadados, dashboard Airflow (já vem no container)
-
----
-
-*Atualize este arquivo a cada nova sessão para manter o histórico do projeto.*# pdf-extract-pipeline
