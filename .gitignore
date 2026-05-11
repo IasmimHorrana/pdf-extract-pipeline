@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.eggs/
+*.egg-info/
+*.egg
+
+# Testes
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ambiente
+.env
+.env.local
+
+# Logs
+logs/*.log
+*.log
+
+# Docker
+docker-compose.override.yml
+
+# Builds
+dist/
+build/
+
+# Poetry/Pipenv
+poetry.lock
