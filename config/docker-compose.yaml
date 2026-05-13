@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  pdf-init:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: pdf_airflow_init
+    restart: "no"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db upgrade
+        airflow users create \
+          --username pdf_admin \
+          --firstname PDF \
+          --lastname Admin \
+          --role Admin \
+          --email admin@pdf.local \
+          --password pdf_admin || true
+    env_file:
+      - ../config/.env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://weather_user:weather_pass@weather_postgres:5432/pdf_airflow_db
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__SECRET_KEY: pdf_local_dev_secret_key
+      AIRFLOW__LOGGING__LOG_LEVEL: INFO
+      PYTHONPATH: /opt/airflow
+      MINIO_ENDPOINT: http://minio:9000
+      DATABASE_URL: postgresql://weather_user:weather_pass@weather_postgres:5432/pdf_db
+      DB_HOST: weather_postgres
+      DB_PORT: "5432"
+      DB_NAME: pdf_db
+      DB_USER: weather_user
+      DB_PASSWORD: weather_pass
+    volumes:
+      - D:/workspace/projeto-pdf-pipeline/dags:/opt/airflow/dags
+      - D:/workspace/projeto-pdf-pipeline/src:/opt/airflow/src
+      - pdf_logs:/opt/airflow/logs
+    networks:
+      - weather_network
+
+  pdf-webserver:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: pdf_airflow_webserver
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    command: webserver
+    env_file:
+      - ../config/.env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://weather_user:weather_pass@weather_postgres:5432/pdf_airflow_db
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__SECRET_KEY: pdf_local_dev_secret_key
+      AIRFLOW__LOGGING__LOG_LEVEL: INFO
+      PYTHONPATH: /opt/airflow
+      MINIO_ENDPOINT: http://minio:9000
+      DATABASE_URL: postgresql://weather_user:weather_pass@weather_postgres:5432/pdf_db
+      DB_HOST: weather_postgres
+      DB_PORT: "5432"
+      DB_NAME: pdf_db
+      DB_USER: weather_user
+      DB_PASSWORD: weather_pass
+    volumes:
+      - D:/workspace/projeto-pdf-pipeline/dags:/opt/airflow/dags
+      - D:/workspace/projeto-pdf-pipeline/src:/opt/airflow/src
+      - pdf_logs:/opt/airflow/logs
+    depends_on:
+      pdf-init:
+        condition: service_completed_successfully
+    networks:
+      - weather_network
+
+  pdf-scheduler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: pdf_airflow_scheduler
+    restart: unless-stopped
+    command: scheduler
+    env_file:
+      - ../config/.env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://weather_user:weather_pass@weather_postgres:5432/pdf_airflow_db
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__SECRET_KEY: pdf_local_dev_secret_key
+      AIRFLOW__LOGGING__LOG_LEVEL: INFO
+      PYTHONPATH: /opt/airflow
+      MINIO_ENDPOINT: http://minio:9000
+      DATABASE_URL: postgresql://weather_user:weather_pass@weather_postgres:5432/pdf_db
+      DB_HOST: weather_postgres
+      DB_PORT: "5432"
+      DB_NAME: pdf_db
+      DB_USER: weather_user
+      DB_PASSWORD: weather_pass
+    volumes:
+      - D:/workspace/projeto-pdf-pipeline/dags:/opt/airflow/dags
+      - D:/workspace/projeto-pdf-pipeline/src:/opt/airflow/src
+      - pdf_logs:/opt/airflow/logs
+    depends_on:
+      pdf-init:
+        condition: service_completed_successfully
+    networks:
+      - weather_network
+
+  pdf-pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pdf_pgadmin
+    restart: unless-stopped
+    ports:
+      - "5051:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: pdf_admin@pdf.com
+      PGADMIN_DEFAULT_PASSWORD: pdf_admin
+    networks:
+      - weather_network
+
+volumes:
+  pdf_logs:
+
+networks:
+  weather_network:
+    external: true
