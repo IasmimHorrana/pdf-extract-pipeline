@@ -1,9 +1,21 @@
 import json
 import os
 import re
+from datetime import datetime
 
 import psycopg2
 from loguru import logger
+
+
+def _convert_date_to_iso(date_str: str) -> str:
+    """Converte data de DD/MM/YYYY para YYYY-MM-DD (formato ISO)."""
+    if not date_str:
+        return date_str
+    try:
+        dt = datetime.strptime(date_str, "%d/%m/%Y")
+        return dt.strftime("%Y-%m-%d")
+    except ValueError:
+        return date_str
 
 
 class NotasCorretagemLoader:
@@ -55,13 +67,14 @@ class NotasCorretagemLoader:
         if nota_match:
             data["numero_fatura"] = nota_match.group(1)
 
-        numero_nota_match = re.search(r"Nº NOTA\s*(\d+)", text_content)
-        if numero_nota_match:
-            data["nota_numero"] = int(numero_nota_match.group(1))
-
-        data_pregao_match = re.search(r"(\d{2}/\d{2}/\d{4})", text_content)
-        if data_pregao_match:
-            data["data_pregao"] = data_pregao_match.group(1)
+        nota_pos = text_content.find("Nº NOTA")
+        if nota_pos != -1:
+            remaining = text_content[nota_pos + 7:]
+            match = re.search(r"(\d+)\s+(\d{2}/\d{2}/)\s*%?(\d{4})", remaining)
+            if match:
+                data["nota_numero"] = int(match.group(1))
+                raw_date = match.group(2) + match.group(3)
+                data["data_pregao"] = _convert_date_to_iso(raw_date)
 
         corretora_match = re.search(r"(Alpha Investimentos|Corretora.*)", text_content, re.IGNORECASE)
         if corretora_match:
@@ -75,7 +88,8 @@ class NotasCorretagemLoader:
         linhas = text_content.split("\n")
 
         for linha in linhas:
-            match = re.search(r"(V|C)\s+(\w+3)\s+(\w+)\s+(\d{2}/\d{2}/\d{4})\s+(\d+)\s+([\d,]+)\s+([\d,]+)", linha)
+            pattern = r"(V|C)\s+([A-Z]{3,5}\d)\s+(\w+)\s+(\d{2}/\d{2}/\d{4})\s+(\d+)\s+([\d,]+)\s+([\d,]+)"
+            match = re.search(pattern, linha)
             if match:
                 operacoes.append({
                     "operacao": match.group(1),
@@ -151,6 +165,7 @@ class NotasCorretagemLoader:
                 if existing_id:
                     logger.warning(f"Nota já existe com ID: {existing_id}. Atualizando...")
                     nota_id = existing_id
+                    upload_date = extraction_result.get("upload_date")
                     cur.execute("""
                         UPDATE dw.notas_corretagem SET
                             file_name = %s,
@@ -160,7 +175,8 @@ class NotasCorretagemLoader:
                             file_size = %s,
                             processed_date = CURRENT_TIMESTAMP,
                             status = %s,
-                            error_message = NULL
+                            error_message = NULL,
+                            upload_date = COALESCE(upload_date, %s)
                         WHERE id = %s
                     """, (
                         extraction_result.get("file_name"),
@@ -169,16 +185,18 @@ class NotasCorretagemLoader:
                         parsed_data.get("nota_numero"),
                         extraction_result.get("file_size"),
                         "success",
+                        upload_date,
                         nota_id
                     ))
                 else:
+                    upload_date = extraction_result.get("upload_date")
                     cur.execute("""
                         INSERT INTO dw.notas_corretagem (
                             file_name, corretora, cliente, conta_liquidacao,
                             cidade, numero_fatura, nota_numero, data_pregao,
-                            file_size, status
+                            file_size, status, upload_date
                         ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         ) RETURNING id
                     """, (
                         extraction_result.get("file_name"),
@@ -190,7 +208,8 @@ class NotasCorretagemLoader:
                         parsed_data.get("nota_numero"),
                         data_pregao,
                         extraction_result.get("file_size"),
-                        "success"
+                        "success",
+                        upload_date
                     ))
                     nota_id = cur.fetchone()[0]
                     logger.info(f"Nota inserida com ID: {nota_id}")
