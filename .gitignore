@@ -32,6 +32,11 @@ htmlcov/
 logs/*.log
 *.log
 
+# Output/Debug
+output/
+*.png
+*.jpg
+
 # Docker
 docker-compose.override.yml
 
