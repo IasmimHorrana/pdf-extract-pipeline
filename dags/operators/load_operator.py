@@ -1,6 +1,7 @@
 import json
 import sys
 from pathlib import Path
+from tempfile import gettempdir
 
 from airflow.operators.python import PythonOperator
 from airflow.utils.context import Context
@@ -9,6 +10,8 @@ sys.path.insert(0, "/opt/airflow/src")
 
 from src.loaders import NotasCorretagemLoader
 from src.utils.logging_config import get_logger, setup_logging
+
+TEMP_DIR = Path(gettempdir()) / "pdf_pipeline"
 
 setup_logging()
 logger = get_logger("LoadOperator")
@@ -27,7 +30,7 @@ def load_pdf_data(**context: Context) -> dict:
     loader = NotasCorretagemLoader()
 
     for file_key in extracted_files:
-        result_path = Path(f"/tmp/pdf_pipeline/{Path(file_key).name}.extracted")
+        result_path = TEMP_DIR / f"{Path(file_key).name}.extracted"
         if not result_path.exists():
             logger.warning(f"Arquivo extraído não encontrado: {result_path}")
             results["errors"].append({

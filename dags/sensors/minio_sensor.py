@@ -7,7 +7,7 @@ from airflow.utils.context import Context
 sys.path.insert(0, "/opt/airflow/src")
 
 from dags.hooks.minio_hook import MinIOHook
-from utils.logging_config import get_logger
+from src.utils.logging_config import get_logger
 
 logger = get_logger("MinIOSensor")
 
